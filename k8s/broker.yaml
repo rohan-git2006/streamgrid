@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broker
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: broker}
+  template:
+    metadata:
+      labels: {app: broker}
+    spec:
+      containers:
+        - name: broker
+          image: streamgrid-broker:latest
+          imagePullPolicy: Never
+          env:
+            - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: CASSANDRA_HOST, value: cassandra}
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: {path: /health, port: 8080}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8080}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+spec:
+  selector: {app: broker}
+  ports:
+    - port: 8080
+      targetPort: 8080

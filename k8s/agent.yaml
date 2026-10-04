@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: agent}
+  template:
+    metadata:
+      labels: {app: agent}
+    spec:
+      containers:
+        - name: agent
+          image: streamgrid-agent:latest
+          imagePullPolicy: Never
+          args: ["-nodes", "12", "-capacity", "4"]
+          env:
+            - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: CASSANDRA_HOST, value: cassandra}

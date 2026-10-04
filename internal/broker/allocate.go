@@ -1,31 +1,31 @@
 package broker
 
 import (
-    "context"
-    "errors"
-    "time"
+	"context"
+	"errors"
+	"time"
 
-    "github.com/google/uuid"
-    "github.com/redis/go-redis/v9"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 var ErrNotFound = errors.New("session not found")
 
 type Session struct {
-    ID            string `json:"id"`
-    UserID        string `json:"user_id"`
-    NodeID        string `json:"node_id,omitempty"`
-    Region        string `json:"region"`
-    Status        string `json:"status"`
-    QueuePosition int64  `json:"queue_position,omitempty"`
+	ID            string `json:"id"`
+	UserID        string `json:"user_id"`
+	NodeID        string `json:"node_id,omitempty"`
+	Region        string `json:"region"`
+	Status        string `json:"status"`
+	QueuePosition int64  `json:"queue_position,omitempty"`
 }
 
 type Broker struct {
-    rdb *redis.Client
+	rdb *redis.Client
 }
 
 func New(rdb *redis.Client) *Broker {
-    return &Broker{rdb: rdb}
+	return &Broker{rdb: rdb}
 }
 
 // allocateScript picks the least-loaded ALIVE node in the region with free
@@ -88,53 +88,53 @@ return 1
 `)
 
 func (b *Broker) Allocate(ctx context.Context, userID, region string) (*Session, error) {
-    id := uuid.NewString()
-    res, err := allocateScript.Run(ctx, b.rdb, nil, region, id, userID, time.Now().Unix()).Result()
+	id := uuid.NewString()
+	res, err := allocateScript.Run(ctx, b.rdb, nil, region, id, userID, time.Now().Unix()).Result()
 
-    if err == redis.Nil {
-        // Region is full: park the session in the FIFO queue.
-        pipe := b.rdb.TxPipeline()
-        pipe.HSet(ctx, "session:"+id, "user_id", userID, "region", region, "status", "QUEUED")
-        pipe.RPush(ctx, "queue:"+region, id)
-        if _, err := pipe.Exec(ctx); err != nil {
-            return nil, err
-        }
-        s := &Session{ID: id, UserID: userID, Region: region, Status: "QUEUED"}
-        if pos, err := b.rdb.LPos(ctx, "queue:"+region, id, redis.LPosArgs{}).Result(); err == nil {
-            s.QueuePosition = pos + 1
-        }
-        return s, nil
-    }
-    if err != nil {
-        return nil, err
-    }
-    return &Session{ID: id, UserID: userID, NodeID: res.(string), Region: region, Status: "RUNNING"}, nil
+	if err == redis.Nil {
+		// Region is full: park the session in the FIFO queue.
+		pipe := b.rdb.TxPipeline()
+		pipe.HSet(ctx, "session:"+id, "user_id", userID, "region", region, "status", "QUEUED")
+		pipe.RPush(ctx, "queue:"+region, id)
+		if _, err := pipe.Exec(ctx); err != nil {
+			return nil, err
+		}
+		s := &Session{ID: id, UserID: userID, Region: region, Status: "QUEUED"}
+		if pos, err := b.rdb.LPos(ctx, "queue:"+region, id, redis.LPosArgs{}).Result(); err == nil {
+			s.QueuePosition = pos + 1
+		}
+		return s, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &Session{ID: id, UserID: userID, NodeID: res.(string), Region: region, Status: "RUNNING"}, nil
 }
 
 func (b *Broker) Get(ctx context.Context, id string) (*Session, error) {
-    h, err := b.rdb.HGetAll(ctx, "session:"+id).Result()
-    if err != nil {
-        return nil, err
-    }
-    if len(h) == 0 {
-        return nil, ErrNotFound
-    }
-    s := &Session{ID: id, UserID: h["user_id"], NodeID: h["node_id"], Region: h["region"], Status: h["status"]}
-    if s.Status == "QUEUED" {
-        if pos, err := b.rdb.LPos(ctx, "queue:"+s.Region, id, redis.LPosArgs{}).Result(); err == nil {
-            s.QueuePosition = pos + 1
-        }
-    }
-    return s, nil
+	h, err := b.rdb.HGetAll(ctx, "session:"+id).Result()
+	if err != nil {
+		return nil, err
+	}
+	if len(h) == 0 {
+		return nil, ErrNotFound
+	}
+	s := &Session{ID: id, UserID: h["user_id"], NodeID: h["node_id"], Region: h["region"], Status: h["status"]}
+	if s.Status == "QUEUED" {
+		if pos, err := b.rdb.LPos(ctx, "queue:"+s.Region, id, redis.LPosArgs{}).Result(); err == nil {
+			s.QueuePosition = pos + 1
+		}
+	}
+	return s, nil
 }
 
 func (b *Broker) Release(ctx context.Context, id string) error {
-    n, err := releaseScript.Run(ctx, b.rdb, nil, id).Int64()
-    if err != nil {
-        return err
-    }
-    if n == 0 {
-        return ErrNotFound
-    }
-    return nil
+	n, err := releaseScript.Run(ctx, b.rdb, nil, id).Int64()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

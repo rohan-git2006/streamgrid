@@ -6,7 +6,8 @@ import (
 
     "github.com/gin-gonic/gin"
     "github.com/redis/go-redis/v9"
-    "github.com/rohan-git2006/streamgrid/internal/registry"
+    "github.com/rohan-git2006/streamgrid/internal/broker"
+	"github.com/rohan-git2006/streamgrid/internal/registry"
     "github.com/rohan-git2006/streamgrid/internal/store"
 )
 
@@ -67,5 +68,6 @@ func main() {
         c.JSON(200, events)
     })
 
-    r.Run(":8080")
+    broker.New(rdb).Routes(r)
+	r.Run(":8080")
 }

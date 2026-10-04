@@ -1,0 +1,38 @@
+{
+  "title": "StreamGrid",
+  "uid": "streamgrid",
+  "schemaVersion": 39,
+  "refresh": "5s",
+  "time": {"from": "now-15m", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Request rate (req/s)",
+     "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+     "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [{"refId": "A", "legendFormat": "req/s", "expr": "sum(rate(http_request_duration_seconds_count[30s]))"}]},
+    {"id": 2, "type": "timeseries", "title": "p95 latency (s)",
+     "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+     "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [{"refId": "A", "legendFormat": "p95", "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[30s])) by (le))"}]},
+    {"id": 3, "type": "timeseries", "title": "Queue length by region",
+     "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+     "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [{"refId": "A", "legendFormat": "{{region}}", "expr": "max by (region) (streamgrid_queue_length)"}]},
+    {"id": 4, "type": "timeseries", "title": "Nodes alive / sessions running",
+     "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+     "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [
+       {"refId": "A", "legendFormat": "nodes alive", "expr": "max(streamgrid_nodes_alive)"},
+       {"refId": "B", "legendFormat": "sessions running", "expr": "max(streamgrid_sessions_running)"}]},
+    {"id": 5, "type": "timeseries", "title": "Broker replicas (HPA)",
+     "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+     "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [{"refId": "A", "legendFormat": "replicas", "expr": "count(up{job=\"broker\"} == 1)"}]},
+    {"id": 6, "type": "timeseries", "title": "Allocations, promotions, re-queues (per s)",
+     "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+     "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [
+       {"refId": "A", "legendFormat": "allocations {{outcome}}", "expr": "sum by (outcome) (rate(streamgrid_allocations_total[30s]))"},
+       {"refId": "B", "legendFormat": "promotions", "expr": "sum(rate(streamgrid_promotions_total[30s]))"},
+       {"refId": "C", "legendFormat": "re-queued", "expr": "sum(rate(streamgrid_requeued_sessions_total[30s]))"}]}
+  ]
+}

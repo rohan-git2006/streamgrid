@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/rohan-git2006/streamgrid/internal/broker"
+	"github.com/rohan-git2006/streamgrid/internal/metrics"
 	"github.com/rohan-git2006/streamgrid/internal/registry"
 	"github.com/rohan-git2006/streamgrid/internal/store"
 )
@@ -30,6 +31,8 @@ func main() {
 	defer st.Close()
 
 	r := gin.Default()
+	r.Use(metrics.Middleware())
+	r.GET("/metrics", metrics.Handler())
 
 	r.GET("/health", func(c *gin.Context) {
 		status := gin.H{"redis": "ok", "cassandra": "ok"}

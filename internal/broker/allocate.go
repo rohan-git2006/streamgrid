@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/rohan-git2006/streamgrid/internal/metrics"
 )
 
 var ErrNotFound = errors.New("session not found")
@@ -100,6 +101,7 @@ func (b *Broker) Allocate(ctx context.Context, userID, region string) (*Session,
 			return nil, err
 		}
 		s := &Session{ID: id, UserID: userID, Region: region, Status: "QUEUED"}
+		metrics.Allocations.WithLabelValues("queued").Inc()
 		if pos, err := b.rdb.LPos(ctx, "queue:"+region, id, redis.LPosArgs{}).Result(); err == nil {
 			s.QueuePosition = pos + 1
 		}
@@ -108,6 +110,7 @@ func (b *Broker) Allocate(ctx context.Context, userID, region string) (*Session,
 	if err != nil {
 		return nil, err
 	}
+	metrics.Allocations.WithLabelValues("running").Inc()
 	return &Session{ID: id, UserID: userID, NodeID: res.(string), Region: region, Status: "RUNNING"}, nil
 }
 

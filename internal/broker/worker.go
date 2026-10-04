@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/rohan-git2006/streamgrid/internal/metrics"
 )
 
 // promoteScript moves ONE queued session of a region onto a node with free
@@ -73,6 +74,7 @@ type EventLogger interface {
 func (b *Broker) Run(ctx context.Context, ev EventLogger) {
 	go b.drainLoop(ctx, ev)
 	go b.reapLoop(ctx, ev)
+	go b.collectLoop(ctx)
 }
 
 func (b *Broker) drainLoop(ctx context.Context, ev EventLogger) {
@@ -95,6 +97,7 @@ func (b *Broker) drainLoop(ctx context.Context, ev EventLogger) {
 					}
 					pair := res.([]interface{})
 					log.Printf("promoted session %v to %v", pair[0], pair[1])
+					metrics.Promotions.Inc()
 					_ = ev.RecordNodeEvent(pair[1].(string), "SESSION_PROMOTED", pair[0].(string))
 				}
 			}
@@ -127,6 +130,7 @@ func (b *Broker) reapLoop(ctx context.Context, ev EventLogger) {
 				n, err := reapScript.Run(ctx, b.rdb, nil, id).Int64()
 				if err == nil && n > 0 {
 					log.Printf("node %s dead: re-queued %d sessions", id, n)
+					metrics.Requeued.Add(float64(n))
 					_ = ev.RecordNodeEvent(id, "NODE_DEAD", "requeued sessions="+itoa(n))
 				}
 			}
